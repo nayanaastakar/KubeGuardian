@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubeguardian-redis
+  namespace: kubeguardian
+  labels:
+    app: kubeguardian-redis
+    component: cache
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kubeguardian-redis
+  template:
+    metadata:
+      labels:
+        app: kubeguardian-redis
+        component: cache
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+          name: redis
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+  volumes:
+  - name: redis-data
+    persistentVolumeClaim:
+      claimName: kubeguardian-redis-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubeguardian-redis
+  namespace: kubeguardian
+  labels:
+    app: kubeguardian-redis
+    component: cache
+spec:
+  selector:
+    app: kubeguardian-redis
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: 6379
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kubeguardian-redis-pvc
+  namespace: kubeguardian
+  labels:
+    app: kubeguardian-redis
+    component: cache
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: fast-ssd

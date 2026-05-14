@@ -1,0 +1,116 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kubeguardian-mongodb
+  namespace: kubeguardian
+  labels:
+    app: kubeguardian-mongodb
+    component: database
+spec:
+  serviceName: kubeguardian-mongodb
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kubeguardian-mongodb
+  template:
+    metadata:
+      labels:
+        app: kubeguardian-mongodb
+        component: database
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo:7.0
+        ports:
+        - containerPort: 27017
+          name: mongodb
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: kubeguardian-secrets
+              key: mongodb-username
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kubeguardian-secrets
+              key: mongodb-password
+        - name: MONGO_INITDB_DATABASE
+          value: "kubeguardian"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: mongodb-data
+          mountPath: /data/db
+        - name: mongodb-init
+          mountPath: /docker-entrypoint-initdb.d
+          readOnly: true
+        livenessProbe:
+          exec:
+            command:
+            - mongosh
+            - --eval
+            - "db.adminCommand('ping')"
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - mongosh
+            - --eval
+            - "db.adminCommand('ping')"
+          initialDelaySeconds: 5
+          periodSeconds: 5
+  volumeClaimTemplates:
+  - metadata:
+      name: mongodb-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi
+      storageClassName: fast-ssd
+  volumes:
+  - name: mongodb-init
+    configMap:
+      name: kubeguardian-mongodb-init
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubeguardian-mongodb
+  namespace: kubeguardian
+  labels:
+    app: kubeguardian-mongodb
+    component: database
+spec:
+  selector:
+    app: kubeguardian-mongodb
+  ports:
+  - name: mongodb
+    port: 27017
+    targetPort: 27017
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubeguardian-mongodb-init
+  namespace: kubeguardian
+data:
+  init-mongo.js: |
+    // MongoDB initialization script for KubeGuardian
+    db = db.getSiblingDB('kubeguardian');
+    
+    // Create indexes
+    db.users.createIndex({ email: 1 }, { unique: true });
+    db.clusters.createIndex({ name: 1 }, { unique: true });
+    db.vulnerabilities.createIndex({ clusterId: 1 });
+    db.alerts.createIndex({ clusterId: 1 });
+    
+    print('MongoDB indexes created successfully');
