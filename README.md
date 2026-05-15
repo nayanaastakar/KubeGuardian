@@ -1,5 +1,5 @@
 # KubeGuardian AI – Cloud Native DevSecOps Automation Platform
-
+Project updated
 > 🚀 **AI-powered Kubernetes security and DevSecOps automation platform**
 
 KubeGuardian AI is an enterprise-grade Cloud Native DevSecOps Automation Platform that combines Kubernetes security, AI-powered threat analysis, CI/CD automation, monitoring, compliance auditing, and auto-remediation into one intelligent platform.
