@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 
 export default function ClustersPage() {
+  const [mounted, setMounted] = useState(false)
   const [clusters, setClusters] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -19,13 +20,14 @@ export default function ClustersPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
     fetchClusters()
   }, [])
 
   const fetchClusters = async () => {
     try {
       const token = localStorage.getItem('token')
-      const res = await fetch('http://localhost:8000/api/clusters', {
+      const res = await fetch('/api/clusters', {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       const data = await res.json()
@@ -46,7 +48,7 @@ export default function ClustersPage() {
 
     try {
       const token = localStorage.getItem('token')
-      const res = await fetch('http://localhost:8000/api/clusters', {
+      const res = await fetch('/api/clusters', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -196,7 +198,7 @@ export default function ClustersPage() {
                         <span className="text-xs text-slate-400">{cluster.memoryUsage || 62}%</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-xs">{cluster.lastSync ? new Date(cluster.lastSync).toLocaleString() : 'Just now'}</TableCell>
+                     <TableCell className="text-muted-foreground text-xs">{cluster.lastSync && mounted ? new Date(cluster.lastSync).toLocaleString() : cluster.lastSync ? '...' : 'Just now'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

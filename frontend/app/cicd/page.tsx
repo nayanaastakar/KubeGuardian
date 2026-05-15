@@ -22,7 +22,7 @@ export default function CICDPage() {
     setLoading(true)
     try {
       const token = localStorage.getItem('token')
-      const res = await fetch('http://localhost:8000/api/scans', {
+      const res = await fetch('/api/scans', {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       const data = await res.json()

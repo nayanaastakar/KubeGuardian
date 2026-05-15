@@ -49,7 +49,7 @@ export default function SettingsPage() {
       const token = localStorage.getItem('token')
       if (!token) return
 
-      const res = await fetch('http://localhost:8000/api/auth/me', {
+      const res = await fetch('/api/auth/me', {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       const data = await res.json()
@@ -64,7 +64,7 @@ export default function SettingsPage() {
   const fetchSettings = async () => {
     setIsLoading(true)
     try {
-      const res = await fetch('http://localhost:8000/api/settings')
+      const res = await fetch('/api/settings')
       const data = await res.json()
       if (data.success) {
         setSettings(data.data)
@@ -85,7 +85,7 @@ export default function SettingsPage() {
     setIsSaving(true)
     try {
       const token = localStorage.getItem('token')
-      const res = await fetch('http://localhost:8000/api/auth/me', {
+      const res = await fetch('/api/auth/me', {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json',
@@ -115,7 +115,7 @@ export default function SettingsPage() {
     setIsSaving(true)
     try {
       const token = localStorage.getItem('token')
-      const res = await fetch('http://localhost:8000/api/settings', {
+      const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

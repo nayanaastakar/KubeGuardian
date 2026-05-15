@@ -56,6 +56,7 @@ const INITIAL_FORM = {
 
 /* ── Page ──────────────────────────────────── */
 export default function ProjectsPage() {
+  const [mounted, setMounted] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -64,7 +65,10 @@ export default function ProjectsPage() {
   const [form, setForm] = useState(INITIAL_FORM)
   const { activeProject, setActiveProject } = useProjectStore()
 
-  useEffect(() => { fetchProjects() }, [])
+  useEffect(() => { 
+    setMounted(true)
+    fetchProjects() 
+  }, [])
 
   const authHeader = () => ({
     'Content-Type': 'application/json',
@@ -74,7 +78,7 @@ export default function ProjectsPage() {
   const fetchProjects = async () => {
     setLoading(true)
     try {
-      const res = await fetch('http://localhost:8000/api/projects', { headers: authHeader() })
+      const res = await fetch('/api/projects', { headers: authHeader() })
       const data = await res.json()
       if (data.success) setProjects(data.data)
     } catch {
@@ -93,7 +97,7 @@ export default function ProjectsPage() {
         ...form,
         tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean),
       }
-      const res = await fetch('http://localhost:8000/api/projects', {
+      const res = await fetch('/api/projects', {
         method: 'POST',
         headers: authHeader(),
         body: JSON.stringify(payload),
@@ -135,7 +139,7 @@ export default function ProjectsPage() {
     if (!confirm(`Delete project "${name}"? This cannot be undone.`)) return
     setDeletingId(id)
     try {
-      await fetch(`http://localhost:8000/api/projects/${id}`, {
+      await fetch(`/api/projects/${id}`, {
         method: 'DELETE',
         headers: authHeader(),
       })
@@ -339,7 +343,7 @@ export default function ProjectsPage() {
                     {project.lastScanned && (
                       <div className="flex items-center gap-2 text-[11px] text-slate-500">
                         <CheckCircle className="w-3 h-3 shrink-0" />
-                        <span>Last scanned {new Date(project.lastScanned).toLocaleDateString()}</span>
+                        <span>Last scanned {mounted ? new Date(project.lastScanned).toLocaleDateString() : '...'}</span>
                       </div>
                     )}
                   </div>

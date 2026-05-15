@@ -24,7 +24,7 @@ export default function VulnerabilitiesPage() {
     setLoading(true)
     try {
       const token = localStorage.getItem('token')
-      const res = await fetch('http://localhost:8000/api/security/vulnerabilities', {
+      const res = await fetch('/api/security/vulnerabilities', {
         headers: { 'Authorization': `Bearer ${token}` }
       }).catch(err => {
         throw new Error('Security service unavailable')

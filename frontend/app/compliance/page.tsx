@@ -23,10 +23,10 @@ export default function CompliancePage() {
     try {
       const token = localStorage.getItem('token')
       const [ovRes, logsRes] = await Promise.all([
-        fetch('http://localhost:8000/api/compliance/overview', {
+        fetch('/api/compliance/overview', {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch('http://localhost:8000/api/compliance/audit-logs', {
+        fetch('/api/compliance/audit-logs', {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ]).catch(err => {

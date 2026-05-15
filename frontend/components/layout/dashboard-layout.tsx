@@ -128,7 +128,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       const token = localStorage.getItem('token')
       if (!token) return
 
-      const res = await fetch('http://localhost:8000/api/auth/me', {
+      const res = await fetch('/api/auth/me', {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       const data = await res.json()

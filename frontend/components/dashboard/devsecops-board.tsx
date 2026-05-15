@@ -141,6 +141,7 @@ function PipelineStatus({ status }: { status: string }) {
 
 /* ─── Main Component ─────────────────────────────────────── */
 export function DevSecOpsBoard() {
+  const [mounted, setMounted] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [isRefreshing, setIsRefreshing] = useState(false)
   const { activeProject } = useProjectStore()
@@ -154,6 +155,7 @@ export function DevSecOpsBoard() {
   }
 
   useEffect(() => {
+    setMounted(true)
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
@@ -185,7 +187,7 @@ export function DevSecOpsBoard() {
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
             <Clock className="w-3.5 h-3.5 text-slate-400" />
             <span className="text-xs text-slate-400 font-mono">
-              {currentTime.toLocaleTimeString('en-US', { hour12: false })}
+              {mounted ? currentTime.toLocaleTimeString('en-US', { hour12: false }) : '00:00:00'}
             </span>
           </div>
           <Button

@@ -28,7 +28,7 @@ export default function MonitoringPage() {
   const fetchMetrics = async () => {
     try {
       const token = localStorage.getItem('token')
-      const res = await fetch('http://localhost:8000/api/metrics/summary', {
+      const res = await fetch('/api/metrics/summary', {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       const data = await res.json()

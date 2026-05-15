@@ -24,10 +24,10 @@ export default function SecurityPage() {
     try {
       const token = localStorage.getItem('token')
       const [eventsRes, statsRes] = await Promise.all([
-        fetch('http://localhost:8000/api/alerts', {
+        fetch('/api/alerts', {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch('http://localhost:8000/api/security/overview', {
+        fetch('/api/security/overview', {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ]).catch(err => {
