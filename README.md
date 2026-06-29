@@ -1,4 +1,4 @@
-# KubeGuardian AI – Cloud Native DevSecOps Automation Platform
+# CNA lab internals CIE KubeGuardian AI – Cloud Native DevSecOps Automation Platform
 Pull request update
 > 🚀 **AI-powered Kubernetes security and DevSecOps automation platform**
 
