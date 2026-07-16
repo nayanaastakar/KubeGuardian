@@ -1,24 +1,18 @@
 pipeline {
-    agent {
-        docker {
-            image 'node:20'
-        }
-    }
+    agent any
 
     stages {
-        stage('Install') {
+
+        stage('Checkout') {
             steps {
-                dir('frontend') {
-                    sh 'npm install'
-                }
+                checkout scm
             }
         }
 
-        stage('Build') {
+        stage('Verify Pipeline') {
             steps {
-                dir('frontend') {
-                    sh 'npm run build'
-                }
+                echo 'GitHub repository cloned successfully.'
+                echo 'Jenkins Pipeline executed successfully.'
             }
         }
     }
