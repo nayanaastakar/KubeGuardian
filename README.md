@@ -6,7 +6,7 @@ KubeGuardian AI is an enterprise-grade Cloud Native DevSecOps Automation Platfor
 
 ## 🌟 Key Features
 
-- **🔒 Kubernetes Security Scanning** - Automated vulnerability detection with Trivy, Falco, and OPA
+- **🔒commiting  Kubernetes Security Scanning** - Automated vulnerability detection with Trivy, Falco, and OPA
 - **🤖 AI-Powered Analysis** - Intelligent log analysis, threat prioritization, and remediation suggestions
 - **📊 Real-time Monitoring** - Prometheus + Grafana dashboards for cluster health and security metrics
 - **🔄 CI/CD Automation** - GitHub Actions integration with security gates and auto-remediation
