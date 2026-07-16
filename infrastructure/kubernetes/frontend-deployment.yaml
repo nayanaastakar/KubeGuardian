@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubeguardian-frontend
+  namespace: kubeguardian
+  labels:
+    app: kubeguardian-frontend
+    component: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kubeguardian-frontend
+  template:
+    metadata:
+      labels:
+        app: kubeguardian-frontend
+        component: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: kubeguardian-frontend:latest
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: NEXT_PUBLIC_API_URL
+          value: "http://kubeguardian-backend:8000"
+        - name: NEXT_PUBLIC_WS_URL
+          value: "ws://kubeguardian-backend:8000"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubeguardian-frontend
+  namespace: kubeguardian
+  labels:
+    app: kubeguardian-frontend
+    component: frontend
+spec:
+  selector:
+    app: kubeguardian-frontend
+  ports:
+  - name: http
+    port: 3000
+    targetPort: 3000
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kubeguardian-ingress
+  namespace: kubeguardian
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - kubeguardian.example.com
+    secretName: kubeguardian-tls
+  rules:
+  - host: kubeguardian.example.com
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: kubeguardian-backend
+            port:
+              number: 8000
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: kubeguardian-frontend
+            port:
+              number: 3000

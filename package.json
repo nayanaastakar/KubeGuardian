@@ -1,0 +1,51 @@
+{
+  "name": "kubeguardian-mern",
+  "version": "1.0.0",
+  "description": "DevSecOps Board Game - MERN Stack Implementation",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:client": "npm run dev --workspace client",
+    "dev:server": "npm run dev --workspace server",
+    "dev:ui": "npm run dev --workspace client",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "cd client && npm run build",
+    "build:server": "cd server && npm run build",
+    "start": "concurrently \"npm run start:server\" \"npm run start:client\"",
+    "start:client": "cd client && npm run preview",
+    "start:server": "cd server && npm run start",
+    "test": "npm run test:client && npm run test:server",
+    "test:client": "cd client && npm test",
+    "test:server": "cd server && npm test",
+    "lint": "npm run lint:client && npm run lint:server",
+    "lint:client": "cd client && npm run lint",
+    "lint:server": "cd server && npm run lint",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "k8s:deploy": "kubectl apply -f kubernetes/",
+    "k8s:delete": "kubectl delete -f kubernetes/"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "mern",
+    "devsecops",
+    "kubernetes",
+    "security",
+    "react",
+    "nodejs",
+    "mongodb"
+  ],
+  "author": "DevSecOps Board Game Team",
+  "license": "MIT"
+}
