@@ -6,14 +6,25 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
+                echo 'Repository cloned successfully.'
             }
         }
 
-        stage('Verify Pipeline') {
+        stage('Install') {
             steps {
-                echo 'GitHub repository cloned successfully.'
-                echo 'Jenkins Pipeline executed successfully.'
+                dir('frontend') {
+                    sh 'npm install'
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                dir('frontend') {
+                    sh 'npm run build'
+                }
             }
         }
     }
+
 }
