@@ -3,14 +3,14 @@ import { logger } from '@/utils/logger'
 
 const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/kubeguardian'
 
+mongoose.set('sanitizeFilter', true)
+mongoose.set('bufferCommands', false)
+
 const mongoOptions = {
   maxPoolSize: 10,
   serverSelectionTimeoutMS: 5000,
   socketTimeoutMS: 45000,
-  bufferMaxEntries: 0,
   bufferCommands: false,
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
 }
 
 export async function connectDatabase() {

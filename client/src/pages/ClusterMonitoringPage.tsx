@@ -1,8 +1,32 @@
+import { useEffect, useState } from 'react'
 import { Monitor, Cpu, Server, Layers } from 'lucide-react'
-import { clusterList, overviewData } from '../services/mockApi'
+import { overviewData } from '../services/mockApi'
+import { getLiveClusterStats } from '../services/api'
 import { TrendChart } from '../components/charts/TrendChart'
 
 export function ClusterMonitoringPage() {
+  const [clusters, setClusters] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchClusters = async () => {
+      try {
+        const response = await getLiveClusterStats()
+        if (response.data && response.data.data) {
+          setClusters(response.data.data)
+        }
+      } catch (error) {
+        console.error("Failed to fetch live cluster stats:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchClusters()
+    const interval = setInterval(fetchClusters, 10000) // Poll every 10s
+    return () => clearInterval(interval)
+  }, [])
+
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-panel backdrop-blur-xl">
@@ -24,36 +48,40 @@ export function ClusterMonitoringPage() {
             <span className="font-semibold">Clusters</span>
           </div>
           <div className="space-y-4">
-            {clusterList.map((cluster) => (
-              <div key={cluster.id} className="rounded-3xl bg-slate-950/80 p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm text-slate-400">{cluster.name}</p>
-                    <p className="text-lg font-semibold text-white">{cluster.pods} pods</p>
+            {loading && clusters.length === 0 ? (
+              <p className="text-slate-400 text-sm">Loading live data...</p>
+            ) : (
+              clusters.map((cluster) => (
+                <div key={cluster.id} className="rounded-3xl bg-slate-950/80 p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm text-slate-400">{cluster.name}</p>
+                      <p className="text-lg font-semibold text-white">{cluster.pods} pods</p>
+                    </div>
+                    <span className="rounded-full bg-slate-800 px-3 py-1 text-xs uppercase tracking-[0.25em] text-slate-300">
+                      {cluster.status}
+                    </span>
                   </div>
-                  <span className="rounded-full bg-slate-800 px-3 py-1 text-xs uppercase tracking-[0.25em] text-slate-300">
-                    {cluster.status}
-                  </span>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl bg-slate-900/80 p-3 text-sm text-slate-300">
+                      Namespaces
+                      <div className="mt-2 text-white">{cluster.namespaces}</div>
+                    </div>
+                    <div className="rounded-2xl bg-slate-900/80 p-3 text-sm text-slate-300">
+                      Restarts
+                      <div className="mt-2 text-white">{cluster.restarts}</div>
+                    </div>
+                  </div>
                 </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl bg-slate-900/80 p-3 text-sm text-slate-300">
-                    Namespaces
-                    <div className="mt-2 text-white">{cluster.namespaces}</div>
-                  </div>
-                  <div className="rounded-2xl bg-slate-900/80 p-3 text-sm text-slate-300">
-                    Restarts
-                    <div className="mt-2 text-white">{cluster.restarts}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
         <div className="glass-card rounded-3xl border border-slate-800 p-6 shadow-panel">
           <div className="mb-4 flex items-center gap-3 text-slate-200">
             <Cpu className="h-5 w-5 text-cyan-400" />
-            <span className="font-semibold">Cluster Health</span>
+            <span className="font-semibold">Cluster CPU Trend</span>
           </div>
           <TrendChart data={overviewData.cpuSeries} title="Node CPU trend" color="#38bdf8" />
         </div>
@@ -61,7 +89,7 @@ export function ClusterMonitoringPage() {
         <div className="glass-card rounded-3xl border border-slate-800 p-6 shadow-panel">
           <div className="mb-4 flex items-center gap-3 text-slate-200">
             <Layers className="h-5 w-5 text-cyan-400" />
-            <span className="font-semibold">Workloads</span>
+            <span className="font-semibold">Cluster Memory Pressure</span>
           </div>
           <TrendChart data={overviewData.memorySeries} title="Memory pressure" color="#818cf8" />
         </div>

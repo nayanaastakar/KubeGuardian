@@ -9,6 +9,7 @@ import { Server as SocketIOServer } from 'socket.io'
 
 import { errorHandler } from '@/middleware/errorHandler'
 import { rateLimiterMiddleware } from '@/middleware/rateLimiter'
+import { requestSanitizer } from '@/middleware/requestSanitizer'
 import { logger } from '@/utils/logger'
 import { connectDatabase } from '@/config/database'
 import { connectRedis } from '@/config/redis'
@@ -57,7 +58,57 @@ app.use(compression())
 app.use(morgan('combined', { stream: { write: (message) => logger.info(message.trim()) } }))
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
+app.use(requestSanitizer)
 app.use(rateLimiterMiddleware)
+
+// Browser-friendly backend status page
+app.get('/', (req, res) => {
+  res.type('html').send(`
+    <!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>KubeGuardian Backend</title>
+        <style>
+          body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f7fafc;
+            color: #111827;
+          }
+          main {
+            max-width: 520px;
+            margin: 80px auto;
+            padding: 28px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+          }
+          h1 {
+            margin: 0 0 12px;
+            font-size: 24px;
+          }
+          p {
+            margin: 8px 0;
+            color: #4b5563;
+          }
+          a {
+            color: #2563eb;
+          }
+        </style>
+      </head>
+      <body>
+        <main>
+          <h1>KubeGuardian Backend is running</h1>
+          <p>API server: http://localhost:${PORT}</p>
+          <p>Health check: <a href="/health">/health</a></p>
+          <p>Frontend: <a href="http://localhost:3000/overview">http://localhost:3000/overview</a></p>
+        </main>
+      </body>
+    </html>
+  `)
+})
 
 // Health check endpoint
 app.get('/health', (req, res) => {

@@ -11,3 +11,5 @@ export const api = axios.create({
 
 export const getHealth = () => api.get('/health')
 export const chatWithAI = (message: string) => api.post('/ai/chat', { message })
+export const getLiveClusterStats = () => api.get('/clusters/live')
+export const remediatePod = (namespace: string, podName: string) => api.post(`/clusters/remediate/pod/${namespace}/${podName}`)

@@ -1,25 +1,44 @@
-import { createClient } from 'redis'
 import { logger } from '@/utils/logger'
 
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379'
 
-export const redisClient = createClient({
-  url: redisUrl,
-  socket: {
-    reconnectStrategy: (retries) => Math.min(retries * 50, 500)
+type RedisClient = ReturnType<typeof import('redis').createClient>
+
+let redisClientInstance: RedisClient | undefined
+
+function getRedisClient() {
+  if (!redisClientInstance) {
+    const { createClient } = require('redis') as typeof import('redis')
+
+    redisClientInstance = createClient({
+      url: redisUrl,
+      socket: {
+        reconnectStrategy: (retries) => Math.min(retries * 50, 500)
+      }
+    })
+  }
+
+  return redisClientInstance
+}
+
+export const redisClient = new Proxy({} as RedisClient, {
+  get(_target, prop) {
+    return getRedisClient()[prop as keyof RedisClient]
   }
 })
 
 export async function connectRedis() {
   try {
-    await redisClient.connect()
+    const client = getRedisClient()
+
+    await client.connect()
     logger.info('✅ Redis connected successfully')
     
     // Test connection
-    await redisClient.ping()
+    await client.ping()
     logger.info('✅ Redis ping successful')
     
-    return redisClient
+    return client
   } catch (error) {
     logger.error('❌ Redis connection failed:', error)
     throw error
@@ -29,7 +48,7 @@ export async function connectRedis() {
 // Redis health check
 export async function checkRedisHealth() {
   try {
-    await redisClient.ping()
+    await getRedisClient().ping()
     return { status: 'healthy', timestamp: new Date().toISOString() }
   } catch (error) {
     logger.error('Redis health check failed:', error)
@@ -40,7 +59,11 @@ export async function checkRedisHealth() {
 // Graceful shutdown
 export async function closeRedis() {
   try {
-    await redisClient.quit()
+    if (!redisClientInstance) {
+      return
+    }
+
+    await redisClientInstance.quit()
     logger.info('Redis connection closed')
   } catch (error) {
     logger.error('Error closing Redis:', error)

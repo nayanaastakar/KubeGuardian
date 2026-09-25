@@ -1,118 +1,76 @@
 import { Router } from 'express'
 import { Cluster } from '@/models/Cluster'
 import { asyncHandler } from '@/middleware/errorHandler'
+import { getNamespaces, getPods, getDeployments, getKubernetesClients } from '@/kubernetes/client'
 
 const router = Router()
+
+// Get cluster live metrics
+router.get('/live', asyncHandler(async (req, res) => {
+  try {
+    // Attempt to get live kubernetes client
+    getKubernetesClients() 
+    
+    // If successful, fetch live data
+    const [namespaces, pods, deployments] = await Promise.all([
+      getNamespaces(),
+      getPods('default'),
+      getDeployments('default')
+    ])
+
+    const totalRestarts = pods.reduce((acc: number, pod: any) => {
+      const containerStatuses = pod.status?.containerStatuses || [];
+      return acc + containerStatuses.reduce((sum: number, c: any) => sum + (c.restartCount || 0), 0)
+    }, 0)
+
+    const liveCluster = {
+      id: 'cluster-live',
+      name: 'Local K8s Cluster (Live)',
+      namespaces: namespaces.length,
+      pods: pods.length,
+      status: pods.length > 0 ? 'Healthy' : 'Unknown',
+      restarts: totalRestarts
+    }
+
+    res.json({
+      success: true,
+      data: [liveCluster]
+    })
+  } catch (error) {
+    // Fallback to mock data if no cluster connected
+    console.warn("Live kubernetes not available, falling back to mock.")
+    const mockClusters = [
+      { id: 'cluster-1', name: 'KubeGuardian Cluster (Mock)', namespaces: 16, pods: 128, status: 'Healthy', restarts: 12 },
+      { id: 'cluster-2', name: 'Edge Compute Cluster (Mock)', namespaces: 11, pods: 84, status: 'Warning', restarts: 27 }
+    ]
+    res.json({
+      success: true,
+      data: mockClusters
+    })
+  }
+}))
+
+// Remediate by restarting pod
+router.post('/remediate/pod/:namespace/:podName', asyncHandler(async (req, res) => {
+  try {
+    const { k8sApi } = getKubernetesClients()
+    const { namespace, podName } = req.params
+    await k8sApi.deleteNamespacedPod(podName, namespace)
+    res.json({
+      success: true,
+      message: `Pod ${podName} deleted successfully for remediation.`
+    })
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Remediation failed' })
+  }
+}))
 
 // Get all clusters
 router.get('/', asyncHandler(async (req, res) => {
   const clusters = await Cluster.find()
     .populate('createdBy', 'name email')
     .sort({ createdAt: -1 })
-
-  res.json({
-    success: true,
-    data: clusters
-  })
-}))
-
-// Get single cluster
-router.get('/:id', asyncHandler(async (req, res) => {
-  const { id } = req.params
-  
-  const cluster = await Cluster.findById(id)
-    .populate('createdBy', 'name email')
-  
-  if (!cluster) {
-    return res.status(404).json({
-      success: false,
-      error: 'Cluster not found'
-    })
-  }
-
-  res.json({
-    success: true,
-    data: cluster
-  })
-}))
-
-// Connect new cluster
-router.post('/connect', asyncHandler(async (req, res) => {
-  const { name, endpoint, kubeconfig, createdBy } = req.body
-
-  // Validation
-  if (!name || !endpoint || !kubeconfig || !createdBy) {
-    return res.status(400).json({
-      success: false,
-      error: 'Name, endpoint, kubeconfig, and createdBy are required'
-    })
-  }
-
-  // Create cluster
-  const newCluster = new Cluster({
-    name,
-    endpoint,
-    kubeconfig,
-    createdBy,
-    status: 'connecting'
-  })
-
-  await newCluster.save()
-
-  res.status(201).json({
-    success: true,
-    data: newCluster
-  })
-}))
-
-// Update cluster status
-router.patch('/:id/status', asyncHandler(async (req, res) => {
-  const { id } = req.params
-  const { status, nodeCount, namespaceCount, podCount, version } = req.body
-
-  const cluster = await Cluster.findByIdAndUpdate(
-    id,
-    { 
-      status,
-      nodeCount,
-      namespaceCount,
-      podCount,
-      version,
-      updatedAt: new Date()
-    },
-    { new: true, runValidators: true }
-  )
-
-  if (!cluster) {
-    return res.status(404).json({
-      success: false,
-      error: 'Cluster not found'
-    })
-  }
-
-  res.json({
-    success: true,
-    data: cluster
-  })
-}))
-
-// Delete cluster
-router.delete('/:id', asyncHandler(async (req, res) => {
-  const { id } = req.params
-
-  const cluster = await Cluster.findByIdAndDelete(id)
-  
-  if (!cluster) {
-    return res.status(404).json({
-      success: false,
-      error: 'Cluster not found'
-    })
-  }
-
-  res.json({
-    success: true,
-    message: 'Cluster deleted successfully'
-  })
+  res.json({ success: true, data: clusters })
 }))
 
 export default router

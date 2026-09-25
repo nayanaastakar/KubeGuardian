@@ -1,15 +1,25 @@
-import * as k8s from '@kubernetes/client-node'
 import { logger } from '@/utils/logger'
 
-let kc: k8s.KubeConfig
-let k8sApi: k8s.CoreV1Api
-let appsApi: k8s.AppsV1Api
-let networkingApi: k8s.NetworkingV1Api
+let k8s: typeof import('@kubernetes/client-node') | undefined
+let kc: import('@kubernetes/client-node').KubeConfig
+let k8sApi: import('@kubernetes/client-node').CoreV1Api
+let appsApi: import('@kubernetes/client-node').AppsV1Api
+let networkingApi: import('@kubernetes/client-node').NetworkingV1Api
+
+function loadKubernetesModule() {
+  if (!k8s) {
+    k8s = require('@kubernetes/client-node')
+  }
+
+  return k8s
+}
 
 export async function setupKubernetesClient() {
   try {
+    const k8sClient = loadKubernetesModule()
+
     // Load kubeconfig from default location or environment
-    kc = new k8s.KubeConfig()
+    kc = new k8sClient.KubeConfig()
     
     if (process.env.KUBECONFIG_PATH) {
       kc.loadFromFile(process.env.KUBECONFIG_PATH)
@@ -18,12 +28,12 @@ export async function setupKubernetesClient() {
     }
 
     // Create API clients
-    k8sApi = kc.makeApiClient(k8s.CoreV1Api)
-    appsApi = kc.makeApiClient(k8s.AppsV1Api)
-    networkingApi = kc.makeApiClient(k8s.NetworkingV1Api)
+    k8sApi = kc.makeApiClient(k8sClient.CoreV1Api)
+    appsApi = kc.makeApiClient(k8sClient.AppsV1Api)
+    networkingApi = kc.makeApiClient(k8sClient.NetworkingV1Api)
 
     // Test connection
-    const versionApi = kc.makeApiClient(k8s.VersionApi)
+    const versionApi = kc.makeApiClient(k8sClient.VersionApi)
     const clusterInfo = await versionApi.getCode()
     logger.info('✅ Kubernetes client initialized successfully')
     logger.info(`Cluster API version: ${clusterInfo.body.gitVersion}`)
@@ -49,7 +59,7 @@ export async function checkKubernetesHealth() {
       return { status: 'unhealthy', error: 'Client not initialized' }
     }
 
-    const versionApi = kc.makeApiClient(k8s.VersionApi)
+    const versionApi = kc.makeApiClient(loadKubernetesModule().VersionApi)
     const response = await versionApi.getCode()
     return { 
       status: 'healthy', 
@@ -69,7 +79,7 @@ export async function getClusterInfo() {
       throw new Error('Kubernetes client not initialized')
     }
 
-    const versionApi = kc.makeApiClient(k8s.VersionApi)
+    const versionApi = kc.makeApiClient(loadKubernetesModule().VersionApi)
     const [versionResponse, nodesResponse] = await Promise.all([
       versionApi.getCode(),
       k8sApi.listNode()

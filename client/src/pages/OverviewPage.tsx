@@ -55,7 +55,7 @@ export function OverviewPage() {
         <TrendChart data={overviewData.memorySeries} title="Memory utilization" color="#818cf8" />
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-3">
+      <section className="grid gap-4 xl:grid-cols-2 items-start">
         <div className="glass-card rounded-3xl border border-slate-800 p-6 shadow-panel">
           <div className="mb-5 flex items-center justify-between">
             <div>

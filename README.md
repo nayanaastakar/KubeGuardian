@@ -1,377 +1,98 @@
-# KubeGuardian AI – Cloud Native DevSecOps Automation Platform
-Pull request update
-> 🚀 **AI-powered Kubernetes security and DevSecOps automation platform**
+# KubeGuardian AI - Cloud Native DevSecOps Automation Platform
 
-KubeGuardian AI is an enterprise-grade Cloud Native DevSecOps Automation Platform that combines Kubernetes security, AI-powered threat analysis, CI/CD automation, monitoring, compliance auditing, and auto-remediation into one intelligent platform.
+**Academic Project Implementation - M.Tech Software Engineering (6-Credit)**
 
-## 🌟 Key Features
+## 1. Project Title
+KubeGuardian AI - An AI-Assisted Kubernetes DevSecOps Monitoring and Auto-Remediation Platform.
 
-- **🔒 Kubernetes Security Scanning** - Automated vulnerability detection with Trivy, Falco, and OPA
-- **🤖 AI-Powered Analysis** - Intelligent log analysis, threat prioritization, and remediation suggestions
-- **📊 Real-time Monitoring** - Prometheus + Grafana dashboards for cluster health and security metrics
-- **🔄 CI/CD Automation** - GitHub Actions integration with security gates and auto-remediation
-- **📈 Compliance & Auditing** - CIS benchmarks, OWASP compliance, and automated reporting
-- **⚡ Auto-Remediation** - AI-driven fixes for common security issues and misconfigurations
-- **💰 Cost Optimization** - Resource usage analysis and cost recommendations
-- **🎯 Multi-Cluster Management** - Unified dashboard for managing multiple Kubernetes clusters
+## 2. Problem Statement
+Managing Kubernetes clusters involves complex troubleshooting, continuous security monitoring, and rapid incident response. Traditional tools often provide overwhelming telemetry data without actionable insights, requiring deep domain expertise to interpret logs, identify security risks, and execute remediation strategies safely.
 
-## 🏗️ Architecture
+## 3. Motivation
+To bridge the gap between raw cluster telemetry and actionable DevSecOps operations by leveraging Large Language Models (LLMs) to synthesize alerts, analyze logs, and recommend controlled auto-remediation steps.
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Frontend      │    │    Backend      │    │   AI Service    │
-│   (Next.js)     │◄──►│   (Node.js)     │◄──►│  (FastAPI)      │
-│   TypeScript    │    │   Express       │    │   Python        │
-│   Tailwind      │    │   JWT Auth      │    │   OpenAI        │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 │
-         ┌───────────────────────┼───────────────────────┐
-         │                       │                       │
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   PostgreSQL    │    │     Redis       │    │   Kubernetes    │
-│   Database      │    │     Cache       │    │   Cluster       │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
+## 4. Objectives
+*   Develop a secure, real-time interface for Kubernetes cluster monitoring.
+*   Integrate LLM-assisted root-cause analysis for cluster incidents and security vulnerabilities.
+*   Implement a controlled auto-remediation workflow to automatically resolve common pod failures.
+*   Maintain a robust, testable, and demonstrable full-stack architecture.
 
-## 🛠️ Tech Stack
+## 5. Proposed Solution
+KubeGuardian AI provides a centralized dashboard (MERN/React) that interfaces directly with a target Kubernetes cluster via the Kubernetes API. It securely streams live telemetry, uses OpenAI to contextualize errors and generate fixes, and provides a one-click auto-remediation pipeline.
 
-### Frontend
-- **Next.js 14** - React framework with App Router
-- **TypeScript** - Type-safe development
-- **Tailwind CSS** - Utility-first styling
-- **ShadCN UI** - Modern component library
-- **Framer Motion** - Smooth animations
-- **Zustand** - State management
-- **Recharts** - Data visualization
+## 6. Architecture
+See `ARCHITECTURE.md` (or the architecture diagram provided) for a complete overview. The system consists of:
+*   **Frontend**: React (Vite), Zustand, Tailwind CSS, Recharts.
+*   **Backend**: Node.js, Express, Mongoose, `@kubernetes/client-node`, `openai`.
+*   **Integrations**: Kubernetes API (Live), OpenAI API (Live), MongoDB (Persistent).
 
-### Backend
-- **Node.js** - Runtime environment
-- **Express.js** - Web framework
-- **TypeScript** - Type-safe development
-- **JWT** - Authentication
-- **RBAC** - Role-based access control
-- **WebSockets** - Real-time updates
+## 7. Technology Stack
+*   **Frontend**: React, Vite, TypeScript, Tailwind
+*   **Backend**: Node.js, Express, TypeScript
+*   **Database**: MongoDB (Storage for clusters, incidents)
+*   **DevOps/Infra**: Kubernetes, Docker, GitHub Actions (CI/CD pipelines with Trivy scanning)
+*   **AI**: OpenAI API (`gpt-3.5-turbo`)
 
-### AI Service
-- **Python FastAPI** - High-performance API
-- **OpenAI API** - AI capabilities
-- **LangChain** - LLM orchestration
-- **RAG** - Retrieval-augmented generation
+## 8. Core Features
+*   **Live Kubernetes Telemetry**: Directly queries the cluster for namespaces, deployments, and pods, calculating restart metrics and health status.
+*   **AI-Powered Log Analysis**: Feeds application/pod logs directly into OpenAI for structured JSON root-cause analysis and remediation generation.
+*   **Controlled Auto-Remediation**: Allows authenticated users to safely restart failing workloads (e.g., deleting a pod to allow ReplicaSets to recreate it) directly from the dashboard.
+*   **CI/CD Pipeline Integration**: The `.github` workflows demonstrate real-world CI/CD maturity using automated Trivy security scans on every build.
 
-### Database & Cache
-- **PostgreSQL** - Primary database
-- **Redis** - Caching and sessions
+## 9. Implementation Status (Academic Audit)
 
-### DevOps & Infrastructure
-- **Docker** - Containerization
-- **Kubernetes** - Orchestration
-- **Helm** - Package management
-- **Terraform** - Infrastructure as code
-- **GitHub Actions** - CI/CD pipelines
+### Implemented & Working
+*   Live Kubernetes integration (`@kubernetes/client-node`) fetching real cluster stats.
+*   Auto-Remediation (Pod deletion/restart) via the K8s API.
+*   AI Assistant Chat and Log Analysis integrated directly with the OpenAI API.
+*   Frontend UI fully responsive and connected to the backend API.
+*   CI/CD pipelines (GitHub Actions) with automated container builds and Trivy vulnerability scanning.
 
-### Monitoring & Observability
-- **Prometheus** - Metrics collection
-- **Grafana** - Visualization
-- **Loki** - Log aggregation
-- **Fluent Bit** - Log forwarding
+### Partially Implemented / Mocked
+*   *Security Scoring / Vulnerability Dashboard*: The UI is built, but currently displays static mock data instead of live Falco/Trivy outputs in the dashboard (Trivy *is* used in CI/CD, but results aren't pulled into the DB).
+*   *Prometheus/Grafana*: Configurations exist in `infrastructure/`, but the frontend charts currently utilize deterministic mock trends rather than real PromQL queries to reduce system dependency overhead for the demo.
 
-### Security Tools
-- **Trivy** - Vulnerability scanning
-- **Falco** - Runtime security
-- **OPA Gatekeeper** - Policy enforcement
-- **kube-bench** - CIS compliance
-- **kube-hunter** - Penetration testing
+### Planned / Deliberately Omitted
+*   *Custom Python ML Anomaly Detection*: Omitted to focus on the reliability of the core API and LLM integration. Training a custom model would add complexity without significantly improving the DevSecOps workflow demonstrated by the LLM.
+*   *Multi-Cluster Auth*: Omitted to ensure the local demo runs reliably on a single `kubeconfig` (e.g., Minikube/Kind).
 
-## 🚀 Quick Start
+## 10. Running the Project
 
 ### Prerequisites
-
-- Docker & Docker Compose
-- Node.js 18+
-- Python 3.9+
-- kubectl
-- Minikube or Kind (for local development)
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourorg/kubeguardian-ai.git
-   cd kubeguardian-ai
-   ```
-
-2. **Environment setup**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
-
-3. **Start with Docker Compose**
-   ```bash
-   npm run docker:up
-   ```
-
-4. **Access the applications**
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8000
-   - AI Service: http://localhost:8001
-   - Grafana: http://localhost:3001 (admin/admin)
-
-### Local Development
-
-1. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-2. **Start development servers**
-   ```bash
-   npm run dev
-   ```
-
-3. **Run AI service separately**
-   ```bash
-   cd ai-service
-   pip install -r requirements.txt
-   uvicorn app.main:app --reload
-   ```
-
-## 📁 Project Structure
-
-```
-kubeguardian-ai/
-├── frontend/                 # Next.js frontend application
-│   ├── app/                 # App Router pages
-│   ├── components/          # Reusable UI components
-│   ├── pages/               # Legacy pages
-│   ├── hooks/               # Custom React hooks
-│   ├── store/               # State management
-│   └── services/            # API services
-├── backend/                  # Node.js backend API
-│   ├── src/
-│   │   ├── controllers/     # Route controllers
-│   │   ├── routes/          # API routes
-│   │   ├── middleware/      # Express middleware
-│   │   ├── services/        # Business logic
-│   │   ├── models/          # Database models
-│   │   ├── utils/           # Utility functions
-│   │   └── kubernetes/      # K8s integration
-├── ai-service/              # Python FastAPI AI service
-│   ├── app/                 # FastAPI app
-│   ├── rag/                 # RAG implementation
-│   ├── models/              # AI models
-│   └── prompts/             # AI prompts
-├── infrastructure/          # DevOps configurations
-│   ├── kubernetes/          # K8s manifests
-│   ├── helm/               # Helm charts
-│   ├── terraform/          # Terraform configs
-│   └── monitoring/         # Monitoring setup
-├── github-actions/          # CI/CD workflows
-├── docs/                   # Documentation
-└── scripts/                # Utility scripts
-```
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Create a `.env` file with the following variables:
-
-```env
-# Database
-DATABASE_URL=postgresql://kubeguardian:password@localhost:5432/kubeguardian
-REDIS_URL=redis://localhost:6379
-
-# Authentication
-JWT_SECRET=your-super-secret-jwt-key
-JWT_EXPIRES_IN=7d
-
-# AI Service
-OPENAI_API_KEY=your-openai-api-key
-AI_SERVICE_URL=http://localhost:8001
-
-# Kubernetes
-KUBECONFIG_PATH=/path/to/your/kubeconfig
-
-# Monitoring
-PROMETHEUS_URL=http://localhost:9090
-GRAFANA_URL=http://localhost:3001
-
-# External Services
-SLACK_WEBHOOK_URL=your-slack-webhook
-EMAIL_SMTP_HOST=smtp.gmail.com
-EMAIL_SMTP_PORT=587
-```
-
-## 🚢 Deployment
-
-### Kubernetes Deployment
-
-1. **Build Docker images**
-   ```bash
-   npm run docker:build
-   ```
-
-2. **Deploy to Kubernetes**
-   ```bash
-   npm run k8s:deploy
-   ```
-
-### Helm Deployment
-
-```bash
-helm install kubeguardian-ai ./infrastructure/helm/kubeguardian-ai
-```
-
-### Terraform Infrastructure
-
-```bash
-cd infrastructure/terraform
-terraform init
-terraform plan
-terraform apply
-```
-
-## 📊 Monitoring & Observability
-
-### Grafana Dashboards
-
-- **Cluster Overview** - Overall cluster health and metrics
-- **Security Dashboard** - Vulnerability trends and security events
-- **DevOps Dashboard** - CI/CD pipeline status and deployment metrics
-- **Cost Dashboard** - Resource usage and cost optimization
-
-### Prometheus Metrics
-
-Key metrics available:
-- `kubeguardian_cluster_nodes_total`
-- `kubeguardian_vulnerabilities_found`
-- `kubeguardian_security_score`
-- `kubeguardian_deployment_success_rate`
-- `kubeguardian_ai_requests_total`
-
-## 🔒 Security Features
-
-### Vulnerability Scanning
-
-- **Container Image Scanning** - Trivy integration for CVE detection
-- **Kubernetes Manifest Scanning** - Configuration security checks
-- **Runtime Security** - Falco for threat detection
-- **Compliance Checking** - CIS benchmarks and OPA policies
-
-### AI-Powered Security
-
-- **Threat Prioritization** - AI ranks vulnerabilities by risk
-- **Auto-Remediation** - Automatic fixes for common issues
-- **Log Analysis** - AI summarizes and analyzes security logs
-- **Security Assistant** - Chatbot for security guidance
-
-## 🤖 AI Features
-
-### AI Security Assistant
-
-Ask questions like:
-- "Why did my deployment fail?"
-- "How do I fix this CVE vulnerability?"
-- "Analyze these pod logs for security issues"
-- "Generate a secure Kubernetes deployment"
-
-### AI Capabilities
-
-- **Log Summarization** - Condense complex logs into insights
-- **YAML Generation** - Create secure Kubernetes manifests
-- **Threat Explanation** - Understand security implications
-- **Remediation Suggestions** - Get actionable fix recommendations
-
-## 📈 API Documentation
-
-### Authentication
-
-```http
-POST /api/auth/login
-POST /api/auth/register
-POST /api/auth/refresh
-```
-
-### Cluster Management
-
-```http
-GET /api/clusters
-POST /api/clusters/connect
-DELETE /api/clusters/:id
-GET /api/clusters/:id/namespaces
-```
-
-### Security Scanning
-
-```http
-POST /api/scan/image
-POST /api/scan/kubernetes
-GET /api/scan/results
-GET /api/vulnerabilities
-```
-
-### AI Services
-
-```http
-POST /api/ai/chat
-POST /api/ai/analyze-logs
-POST /api/ai/generate-yaml
-POST /api/ai/remediate
-```
-
-## 🧪 Testing
-
-### Unit Tests
-
-```bash
-# Frontend
-cd frontend && npm test
-
-# Backend
-cd backend && npm test
-
-# AI Service
-cd ai-service && pytest
-```
-
-### Integration Tests
-
-```bash
-npm run test:integration
-```
-
-### E2E Tests
-
-```bash
-npm run test:e2e
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-- 📖 [Documentation](docs/)
-- 🐛 [Issue Tracker](https://github.com/yourorg/kubeguardian-ai/issues)
-- 💬 [Discord Community](https://discord.gg/kubeguardian)
-- 📧 [Email Support](mailto:support@kubeguardian.ai)
-
-## 🌟 Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=yourorg/kubeguardian-ai&type=Date)](https://star-history.com/#yourorg/kubeguardian-ai&Date)
-
----
-
-**Built with ❤️ by the KubeGuardian AI Team**
+*   Node.js 18+
+*   Docker & Docker Compose
+*   A running Kubernetes cluster (e.g., Docker Desktop K8s, Minikube, or Kind).
+*   An OpenAI API Key.
+
+### Setup Instructions
+1.  **Configure Environment**:
+    Navigate to `server/` and edit or create `.env`:
+    ```env
+    NODE_ENV=development
+    OPENAI_API_KEY=your_real_openai_key_here
+    ```
+
+2.  **Start Services**:
+    From the root directory, run:
+    ```bash
+    npm install
+    npm run dev
+    ```
+    This will use `concurrently` to launch both the React Vite client (port 3000) and the Node.js Express server (port 8000).
+
+3.  **Access the Platform**:
+    Open `http://localhost:3000` in your browser.
+
+## 11. Example Demonstration Scenarios
+
+**Scenario 1: Live Cluster Detection**
+*   *Action*: Ensure a local Minikube/Docker K8s cluster is running. Start the app. Navigate to "Cluster Monitoring".
+*   *Result*: The dashboard successfully authenticates via `~/.kube/config`, showing real pod counts and namespace data.
+
+**Scenario 2: AI Troubleshooting**
+*   *Action*: Navigate to "AI Assistant". Ask: "My payment-service pod is in CrashLoopBackOff with exit code 137. What does this mean?"
+*   *Result*: The backend queries OpenAI, correctly identifying an OOM (Out of Memory) kill, and suggests increasing memory limits.
+
+**Scenario 3: Controlled Remediation**
+*   *Action*: Navigate to "Incident Center". Expand an open incident and click "Restart".
+*   *Result*: The backend issues a `delete` command to the K8s API. You can run `kubectl get pods` in your terminal to witness Kubernetes automatically terminating and recreating the pod.
