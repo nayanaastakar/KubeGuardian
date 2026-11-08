@@ -1,18 +1,36 @@
 import { Router } from 'express'
-import { Vulnerability } from '@/models/Vulnerability'
 import { asyncHandler } from '@/middleware/errorHandler'
+import { memoryStore, isDbConnected } from '@/services/dataStore'
+import { Vulnerability } from '@/models/Vulnerability'
 
 const router = Router()
 
-// Get security overview
+// Get security overview and dynamic security score
 router.get('/overview', asyncHandler(async (req, res) => {
-  const totalVulnerabilities = await Vulnerability.countDocuments()
-  const criticalVulnerabilities = await Vulnerability.countDocuments({ severity: 'critical' })
-  const highVulnerabilities = await Vulnerability.countDocuments({ severity: 'high' })
-  const mediumVulnerabilities = await Vulnerability.countDocuments({ severity: 'medium' })
-  const lowVulnerabilities = await Vulnerability.countDocuments({ severity: 'low' })
+  let vulns = memoryStore.vulnerabilities
 
-  const securityScore = Math.max(0, 100 - (criticalVulnerabilities * 10 + highVulnerabilities * 5 + mediumVulnerabilities * 2 + lowVulnerabilities * 1))
+  if (isDbConnected()) {
+    try {
+      vulns = await Vulnerability.find()
+    } catch {
+      vulns = memoryStore.vulnerabilities
+    }
+  }
+
+  const activeVulns = vulns.filter(v => v.status !== 'resolved')
+  const totalVulnerabilities = activeVulns.length
+  const criticalVulnerabilities = activeVulns.filter(v => v.severity === 'critical').length
+  const highVulnerabilities = activeVulns.filter(v => v.severity === 'high').length
+  const mediumVulnerabilities = activeVulns.filter(v => v.severity === 'medium').length
+  const lowVulnerabilities = activeVulns.filter(v => v.severity === 'low').length
+
+  // Calculate actual security score based strictly on active findings
+  // Max 100 points, deductions for critical/high/medium/low
+  const deductions = (criticalVulnerabilities * 12) + (highVulnerabilities * 6) + (mediumVulnerabilities * 2) + (lowVulnerabilities * 0.5)
+  const securityScore = Math.max(10, Math.min(100, Math.round(100 - deductions)))
+
+  const namespaceScore = Math.max(15, Math.min(100, Math.round(securityScore - 5)))
+  const deploymentScore = Math.max(20, Math.min(100, Math.round(securityScore + 4)))
 
   const overview = {
     totalVulnerabilities,
@@ -21,6 +39,8 @@ router.get('/overview', asyncHandler(async (req, res) => {
     mediumVulnerabilities,
     lowVulnerabilities,
     securityScore,
+    namespaceScore,
+    deploymentScore,
     lastScan: new Date().toISOString()
   }
 
@@ -30,112 +50,86 @@ router.get('/overview', asyncHandler(async (req, res) => {
   })
 }))
 
-// Get vulnerabilities
+// Get list of vulnerabilities with filter & pagination
 router.get('/vulnerabilities', asyncHandler(async (req, res) => {
-  const { severity, clusterId, status, page = 1, limit = 20 } = req.query
+  const { severity, status, search, page = 1, limit = 50 } = req.query
 
-  // Build filter
-  const filter: any = {}
-  if (severity) filter.severity = severity
-  if (clusterId) filter.clusterId = clusterId
-  if (status) filter.status = status
+  let items = memoryStore.vulnerabilities
 
-  const vulnerabilities = await Vulnerability.find(filter)
-    .populate('clusterId', 'name')
-    .sort({ discoveredAt: -1 })
-    .limit(Number(limit))
-    .skip((Number(page) - 1) * Number(limit))
+  if (isDbConnected()) {
+    try {
+      const filter: any = {}
+      if (severity && severity !== 'all') filter.severity = severity
+      if (status && status !== 'all') filter.status = status
+      items = await Vulnerability.find(filter).sort({ discoveredAt: -1 })
+    } catch {
+      items = memoryStore.vulnerabilities
+    }
+  }
 
-  const total = await Vulnerability.countDocuments(filter)
+  if (severity && severity !== 'all') {
+    items = items.filter(v => v.severity === severity)
+  }
+  if (status && status !== 'all') {
+    items = items.filter(v => v.status === status)
+  }
+  if (search) {
+    const s = String(search).toLowerCase()
+    items = items.filter(v => 
+      v.cveId?.toLowerCase().includes(s) || 
+      v.package?.toLowerCase().includes(s) || 
+      v.title?.toLowerCase().includes(s)
+    )
+  }
+
+  const total = items.length
+  const pageNum = Number(page)
+  const limitNum = Number(limit)
+  const paginated = items.slice((pageNum - 1) * limitNum, pageNum * limitNum)
 
   res.json({
     success: true,
-    data: vulnerabilities,
+    data: paginated,
     pagination: {
-      page: Number(page),
-      limit: Number(limit),
+      page: pageNum,
+      limit: limitNum,
       total,
-      pages: Math.ceil(total / Number(limit))
+      pages: Math.ceil(total / limitNum)
     }
   })
 }))
 
-// Create vulnerability
-router.post('/vulnerabilities', asyncHandler(async (req, res) => {
-  const vulnerabilityData = req.body
-
-  const vulnerability = new Vulnerability(vulnerabilityData)
-  await vulnerability.save()
-
-  res.status(201).json({
-    success: true,
-    data: vulnerability
-  })
-}))
-
-// Update vulnerability status
+// Update vulnerability status (active, resolved, ignored)
 router.patch('/vulnerabilities/:id/status', asyncHandler(async (req, res) => {
   const { id } = req.params
-  const { status, resolvedAt } = req.body
+  const { status } = req.body
 
-  const vulnerability = await Vulnerability.findByIdAndUpdate(
-    id,
-    { 
-      status,
-      resolvedAt: resolvedAt || new Date(),
-      updatedAt: new Date()
-    },
-    { new: true, runValidators: true }
-  )
+  if (isDbConnected()) {
+    try {
+      const doc = await Vulnerability.findOneAndUpdate(
+        { $or: [{ _id: id }, { cveId: id }] },
+        { status, resolvedAt: status === 'resolved' ? new Date() : undefined },
+        { new: true }
+      )
+      if (doc) return res.json({ success: true, data: doc })
+    } catch {
+      // fallback to memory
+    }
+  }
 
-  if (!vulnerability) {
-    return res.status(404).json({
-      success: false,
-      error: 'Vulnerability not found'
-    })
+  const vuln = memoryStore.vulnerabilities.find(v => v._id === id || v.cveId === id)
+  if (!vuln) {
+    return res.status(404).json({ success: false, error: 'Vulnerability not found' })
+  }
+
+  vuln.status = status
+  if (status === 'resolved') {
+    vuln.resolvedAt = new Date()
   }
 
   res.json({
     success: true,
-    data: vulnerability
-  })
-}))
-
-// Get vulnerability statistics
-router.get('/vulnerabilities/stats', asyncHandler(async (req, res) => {
-  const { clusterId, timeRange = '7d' } = req.query
-
-  // Calculate date range
-  const endDate = new Date()
-  const startDate = new Date()
-  startDate.setDate(endDate.getDate() - parseInt(timeRange.toString().replace('d', '')))
-
-  const filter: any = {
-    discoveredAt: { $gte: startDate, $lte: endDate }
-  }
-  if (clusterId) filter.clusterId = clusterId
-
-  const stats = await Vulnerability.aggregate([
-    { $match: filter },
-    {
-      $group: {
-        _id: '$severity',
-        count: { $sum: 1 }
-      }
-    },
-    {
-      $sort: { _id: 1 }
-    }
-  ])
-
-  res.json({
-    success: true,
-    data: {
-      timeRange,
-      startDate,
-      endDate,
-      stats
-    }
+    data: vuln
   })
 }))
 

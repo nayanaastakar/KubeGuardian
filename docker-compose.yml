@@ -2,65 +2,72 @@ version: '3.8'
 
 services:
   client:
+    container_name: kubeguardian-client
     build:
       context: ./client
       dockerfile: Dockerfile
     ports:
-      - "3000:4173"
+      - "${KUBEGUARDIAN_CLIENT_PORT:-3000}:4173"
     environment:
       - VITE_API_BASE_URL=http://localhost:8000/api
     depends_on:
       - server
     networks:
-      - kubeguardian-network
+      - kubeguardian-isolated-network
 
   server:
+    container_name: kubeguardian-server
     build:
       context: ./server
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "${KUBEGUARDIAN_SERVER_PORT:-8000}:8000"
     environment:
       - NODE_ENV=development
-      - MONGODB_URI=mongodb://mongodb:27017/kubeguardian
+      - PORT=8000
+      - MONGODB_URI=mongodb://kubeguardian_admin:KubeGuardianSecret2026!@mongodb:27017/kubeguardian?authSource=admin
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=super-secret
+      - JWT_SECRET=kubeguardian-devsecops-super-secure-jwt-key
       - FRONTEND_URL=http://localhost:3000
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     depends_on:
       - mongodb
       - redis
     networks:
-      - kubeguardian-network
+      - kubeguardian-isolated-network
 
   mongodb:
+    container_name: kubeguardian-mongodb
     image: mongo:7.0
     ports:
-      - "27017:27017"
+      - "${KUBEGUARDIAN_MONGO_PORT:-27018}:27017"
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=kubeguardian
-      - MONGO_INITDB_ROOT_PASSWORD=password
+      - MONGO_INITDB_ROOT_USERNAME=kubeguardian_admin
+      - MONGO_INITDB_ROOT_PASSWORD=KubeGuardianSecret2026!
       - MONGO_INITDB_DATABASE=kubeguardian
     volumes:
-      - mongodb_data:/data/db
+      - kubeguardian_mongodb_data:/data/db
       - ./infrastructure/database/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
     networks:
-      - kubeguardian-network
+      - kubeguardian-isolated-network
 
   redis:
+    container_name: kubeguardian-redis
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "${KUBEGUARDIAN_REDIS_PORT:-6389}:6379"
     volumes:
-      - redis_data:/data
+      - kubeguardian_redis_data:/data
     networks:
-      - kubeguardian-network
+      - kubeguardian-isolated-network
 
   prometheus:
+    container_name: kubeguardian-prometheus
     image: prom/prometheus:latest
     ports:
-      - "9090:9090"
+      - "${KUBEGUARDIAN_PROMETHEUS_PORT:-9091}:9090"
     volumes:
-      - prometheus_data:/prometheus
+      - kubeguardian_prometheus_data:/prometheus
       - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -68,29 +75,36 @@ services:
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
     networks:
-      - kubeguardian-network
+      - kubeguardian-isolated-network
 
   grafana:
+    container_name: kubeguardian-grafana
     image: grafana/grafana:latest
     ports:
-      - "3001:3000"
+      - "${KUBEGUARDIAN_GRAFANA_PORT:-3001}:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=kubeguardian
+      - GF_SECURITY_ADMIN_PASSWORD=KubeGuardianSecureGrafana!
     volumes:
-      - grafana_data:/var/lib/grafana
+      - kubeguardian_grafana_data:/var/lib/grafana
       - ./infrastructure/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./infrastructure/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
     depends_on:
       - prometheus
     networks:
-      - kubeguardian-network
+      - kubeguardian-isolated-network
 
 volumes:
-  mongodb_data:
-  redis_data:
-  prometheus_data:
-  grafana_data:
+  kubeguardian_mongodb_data:
+    name: kubeguardian_mongodb_data
+  kubeguardian_redis_data:
+    name: kubeguardian_redis_data
+  kubeguardian_prometheus_data:
+    name: kubeguardian_prometheus_data
+  kubeguardian_grafana_data:
+    name: kubeguardian_grafana_data
 
 networks:
-  kubeguardian-network:
+  kubeguardian-isolated-network:
+    name: kubeguardian-isolated-network
     driver: bridge

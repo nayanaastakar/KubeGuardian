@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Settings, ShieldCheck, Bell, Globe, Check, AlertCircle, ToggleRight, ToggleLeft } from 'lucide-react'
 import { useSettingsStore, type GeneralConfig, type SecurityPolicy } from '../store/settingsStore'
 import { useNotificationsStore } from '../store/notificationsStore'
+import { getPlatformSettings, updatePlatformSettings } from '../services/api'
 
 function parsePositiveInt(raw: string, fallback: number): number {
   const n = parseInt(raw, 10)
@@ -21,17 +22,48 @@ export function SettingsPage() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle')
   const [activeTab, setActiveTab] = useState<'general' | 'integrations' | 'security' | 'notifications'>('general')
 
-  const handleSave = () => {
+  useEffect(() => {
+    const fetchBackendSettings = async () => {
+      try {
+        const res = await getPlatformSettings()
+        if (res.data?.data) {
+          const d = res.data.data
+          if (d.general) updateGeneral(d.general)
+          if (d.notifications) updateNotifications(d.notifications)
+          if (d.security) updateSecurity(d.security)
+          if (d.integrations) {
+            for (const [key, val] of Object.entries(d.integrations)) {
+              updateIntegration(key, val as any)
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Operating with local settings store:', err)
+      }
+    }
+    fetchBackendSettings()
+  }, [])
+
+  const handleSave = async () => {
     setSaveStatus('saving')
-    setTimeout(() => {
+    try {
+      await updatePlatformSettings(settings)
       setSaveStatus('success')
       addNotification({
         type: 'success',
         title: 'Settings Saved',
-        message: 'Platform settings have been updated successfully'
+        message: 'Platform settings synchronized with KubeGuardian backend.'
       })
       setTimeout(() => setSaveStatus('idle'), 2000)
-    }, 1500)
+    } catch (err: any) {
+      setSaveStatus('error')
+      addNotification({
+        type: 'error',
+        title: 'Save Failed',
+        message: err.message || 'Could not save settings'
+      })
+      setTimeout(() => setSaveStatus('idle'), 2500)
+    }
   }
 
   const handleGeneralChange = (key: string, value: any) => {
@@ -363,10 +395,9 @@ export function SettingsPage() {
           {saveStatus === 'saving' && <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />}
           {saveStatus === 'success' && <Check className="h-5 w-5" />}
           {saveStatus === 'error' && <AlertCircle className="h-5 w-5" />}
-          {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'success' ? 'Saved!' : 'Save Changes'}
+          {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'success' ? 'Saved to Server!' : 'Save Changes'}
         </button>
       </div>
     </div>
   )
 }
-

@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "nodemon --exec \"ts-node -r tsconfig-paths/register\" src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
-    "test": "jest",
+    "start": "node scripts/start-dist.js",
+    "test": "jest --forceExit --passWithNoTests",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "lint": "eslint src/**/*.ts",

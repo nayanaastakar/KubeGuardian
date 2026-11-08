@@ -1,185 +1,96 @@
 import { Router } from 'express'
-import { Alert } from '@/models/Alert'
 import { asyncHandler } from '@/middleware/errorHandler'
+import { memoryStore, isDbConnected } from '@/services/dataStore'
+import { Alert } from '@/models/Alert'
 
 const router = Router()
 
-// Get all alerts
+// Get all alerts with filtering & pagination
 router.get('/', asyncHandler(async (req, res) => {
-  const { severity, clusterId, status, page = 1, limit = 20 } = req.query
+  const { severity, status, namespace, search } = req.query
 
-  // Build filter
-  const filter: any = {}
-  if (severity) filter.severity = severity
-  if (clusterId) filter.clusterId = clusterId
-  if (status) filter.status = status
+  let items = memoryStore.alerts
 
-  const alerts = await Alert.find(filter)
-    .populate('clusterId', 'name')
-    .sort({ createdAt: -1 })
-    .limit(Number(limit))
-    .skip((Number(page) - 1) * Number(limit))
+  if (isDbConnected()) {
+    try {
+      const filter: any = {}
+      if (severity && severity !== 'all') filter.severity = severity
+      if (status && status !== 'all') filter.status = status
+      items = await Alert.find(filter).sort({ createdAt: -1 })
+    } catch {
+      items = memoryStore.alerts
+    }
+  }
 
-  const total = await Alert.countDocuments(filter)
+  if (severity && severity !== 'all') {
+    items = items.filter(a => a.severity === severity)
+  }
+  if (status && status !== 'all') {
+    items = items.filter(a => a.status === status)
+  }
+  if (namespace && namespace !== 'all') {
+    items = items.filter(a => a.namespace === namespace)
+  }
+  if (search) {
+    const s = String(search).toLowerCase()
+    items = items.filter(a => a.title.toLowerCase().includes(s) || a.description.toLowerCase().includes(s))
+  }
 
   res.json({
     success: true,
-    data: alerts,
-    pagination: {
-      page: Number(page),
-      limit: Number(limit),
-      total,
-      pages: Math.ceil(total / Number(limit))
-    }
+    data: items,
+    total: items.length
   })
 }))
 
 // Get single alert
 router.get('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params
-  
-  const alert = await Alert.findById(id)
-    .populate('clusterId', 'name')
-  
+  const alert = memoryStore.alerts.find(a => a._id === id || a.id === id)
   if (!alert) {
-    return res.status(404).json({
-      success: false,
-      error: 'Alert not found'
-    })
+    return res.status(404).json({ success: false, error: 'Alert not found' })
   }
-
-  res.json({
-    success: true,
-    data: alert
-  })
+  res.json({ success: true, data: alert })
 }))
 
-// Create alert
-router.post('/', asyncHandler(async (req, res) => {
-  const alertData = req.body
-
-  const alert = new Alert(alertData)
-  await alert.save()
-
-  res.status(201).json({
-    success: true,
-    data: alert
-  })
-}))
-
-// Update alert status
-router.patch('/:id/status', asyncHandler(async (req, res) => {
+// Acknowledge alert
+router.post('/:id/acknowledge', asyncHandler(async (req, res) => {
   const { id } = req.params
-  const { status, acknowledgedAt, resolvedAt } = req.body
-
-  const updateData: any = { 
-    status,
-    updatedAt: new Date()
-  }
-
-  if (status === 'acknowledged') {
-    updateData.acknowledgedAt = acknowledgedAt || new Date()
-  }
-  
-  if (status === 'resolved') {
-    updateData.resolvedAt = resolvedAt || new Date()
-  }
-
-  const alert = await Alert.findByIdAndUpdate(
-    id,
-    updateData,
-    { new: true, runValidators: true }
-  )
-
+  const alert = memoryStore.alerts.find(a => a._id === id || a.id === id)
   if (!alert) {
-    return res.status(404).json({
-      success: false,
-      error: 'Alert not found'
-    })
+    return res.status(404).json({ success: false, error: 'Alert not found' })
   }
 
-  res.json({
-    success: true,
-    data: alert
-  })
+  alert.status = 'acknowledged'
+  alert.acknowledgedAt = new Date()
+
+  if (isDbConnected()) {
+    try {
+      await Alert.findOneAndUpdate({ _id: id }, { status: 'acknowledged', acknowledgedAt: new Date() })
+    } catch {}
+  }
+
+  res.json({ success: true, data: alert, message: 'Alert acknowledged' })
 }))
 
-// Get alert statistics
-router.get('/stats', asyncHandler(async (req, res) => {
-  const { clusterId, timeRange = '24h' } = req.query
-
-  // Calculate date range
-  const endDate = new Date()
-  const startDate = new Date()
-  
-  if (timeRange.toString().includes('h')) {
-    const hours = parseInt(timeRange.toString().replace('h', ''))
-    startDate.setHours(endDate.getHours() - hours)
-  } else if (timeRange.toString().includes('d')) {
-    const days = parseInt(timeRange.toString().replace('d', ''))
-    startDate.setDate(endDate.getDate() - days)
-  }
-
-  const filter: any = {
-    createdAt: { $gte: startDate, $lte: endDate }
-  }
-  if (clusterId) filter.clusterId = clusterId
-
-  const stats = await Alert.aggregate([
-    { $match: filter },
-    {
-      $group: {
-        _id: '$severity',
-        count: { $sum: 1 }
-      }
-    },
-    {
-      $sort: { _id: 1 }
-    }
-  ])
-
-  const statusStats = await Alert.aggregate([
-    { $match: filter },
-    {
-      $group: {
-        _id: '$status',
-        count: { $sum: 1 }
-      }
-    },
-    {
-      $sort: { _id: 1 }
-    }
-  ])
-
-  res.json({
-    success: true,
-    data: {
-      timeRange,
-      startDate,
-      endDate,
-      severityStats: stats,
-      statusStats
-    }
-  })
-}))
-
-// Delete alert
-router.delete('/:id', asyncHandler(async (req, res) => {
+// Resolve alert
+router.post('/:id/resolve', asyncHandler(async (req, res) => {
   const { id } = req.params
-
-  const alert = await Alert.findByIdAndDelete(id)
-  
+  const alert = memoryStore.alerts.find(a => a._id === id || a.id === id)
   if (!alert) {
-    return res.status(404).json({
-      success: false,
-      error: 'Alert not found'
-    })
+    return res.status(404).json({ success: false, error: 'Alert not found' })
   }
 
-  res.json({
-    success: true,
-    message: 'Alert deleted successfully'
-  })
+  alert.status = 'resolved'
+  alert.resolvedAt = new Date()
+
+  if (isDbConnected()) {
+    try {
+      await Alert.findOneAndUpdate({ _id: id }, { status: 'resolved', resolvedAt: new Date() })
+    } catch {}
+  }
+
+  res.json({ success: true, data: alert, message: 'Alert resolved' })
 }))
 
 export default router

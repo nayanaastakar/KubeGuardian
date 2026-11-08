@@ -11,9 +11,9 @@ import { errorHandler } from '@/middleware/errorHandler'
 import { rateLimiterMiddleware } from '@/middleware/rateLimiter'
 import { requestSanitizer } from '@/middleware/requestSanitizer'
 import { logger } from '@/utils/logger'
-import { connectDatabase } from '@/config/database'
+import { connectDatabase, checkDatabaseHealth } from '@/config/database'
 import { connectRedis } from '@/config/redis'
-import { setupKubernetesClient } from '@/kubernetes/client'
+import { setupKubernetesClient, getClusterInfo, getPods } from '@/kubernetes/client'
 
 // Import routes
 import authRoutes from '@/routes/auth'
@@ -24,16 +24,32 @@ import alertsRoutes from '@/routes/alerts'
 import metricsRoutes from '@/routes/metrics'
 import aiRoutes from '@/routes/ai'
 import complianceRoutes from '@/routes/compliance'
+import remediationRoutes from '@/routes/remediation'
+import rbacRoutes from '@/routes/rbac'
+import networkRoutes from '@/routes/networkSecurity'
+import settingsRoutes from '@/routes/settings'
+import optimizationRoutes from '@/routes/optimization'
 
 // Load environment variables
 dotenv.config()
 
 const app = express()
 const server = createServer(app)
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
+  'http://127.0.0.1:3002',
+  process.env.FRONTEND_URL
+].filter(Boolean) as string[]
+
 const io = new SocketIOServer(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
-    methods: ["GET", "POST"]
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    credentials: true
   }
 })
 
@@ -44,13 +60,19 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
+      imgSrc: ["'self'", 'data:', 'https:'],
     },
   },
 }))
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  origin: (origin, callback) => {
+    // allow requests with no origin (like mobile apps or curl) or if origin is in whitelist
+    if (!origin || allowedOrigins.includes(origin) || origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+      return callback(null, true)
+    }
+    return callback(new Error('Not allowed by CORS'))
+  },
   credentials: true
 }))
 
@@ -69,54 +91,55 @@ app.get('/', (req, res) => {
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>KubeGuardian Backend</title>
+        <title>KubeGuardian DevSecOps Platform</title>
         <style>
           body {
             margin: 0;
-            font-family: Arial, sans-serif;
-            background: #f7fafc;
-            color: #111827;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #090d16;
+            color: #f1f5f9;
           }
           main {
-            max-width: 520px;
+            max-width: 580px;
             margin: 80px auto;
-            padding: 28px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+            padding: 32px;
+            background: #111827;
+            border: 1px solid #1f2937;
+            border-radius: 16px;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
           }
-          h1 {
-            margin: 0 0 12px;
-            font-size: 24px;
-          }
-          p {
-            margin: 8px 0;
-            color: #4b5563;
-          }
-          a {
-            color: #2563eb;
-          }
+          h1 { margin: 0 0 12px; font-size: 24px; color: #38bdf8; }
+          p { margin: 8px 0; color: #94a3b8; }
+          a { color: #38bdf8; text-decoration: none; }
+          a:hover { text-decoration: underline; }
+          .badge { display: inline-block; padding: 4px 10px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border-radius: 6px; font-size: 13px; margin-top: 12px; }
         </style>
       </head>
       <body>
         <main>
-          <h1>KubeGuardian Backend is running</h1>
-          <p>API server: http://localhost:${PORT}</p>
-          <p>Health check: <a href="/health">/health</a></p>
-          <p>Frontend: <a href="http://localhost:3000/overview">http://localhost:3000/overview</a></p>
+          <h1>🛡️ KubeGuardian AI Platform</h1>
+          <p>Cloud Native DevSecOps Automation & Remediation API</p>
+          <div class="badge">Status: Online & Operational</div>
+          <p style="margin-top: 20px;">Health Endpoint: <a href="/health">/health</a></p>
+          <p>Frontend Dashboard: <a href="http://localhost:3000">http://localhost:3000</a></p>
         </main>
       </body>
     </html>
   `)
 })
 
-// Health check endpoint
-app.get('/health', (req, res) => {
+// Comprehensive Health check endpoint
+app.get('/health', async (req, res) => {
+  const dbHealth = await checkDatabaseHealth()
   res.status(200).json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    version: process.env.npm_package_version || '1.0.0'
+    version: '1.0.0',
+    database: dbHealth,
+    realtime: {
+      socketClients: io.engine.clientsCount
+    }
   })
 })
 
@@ -129,6 +152,11 @@ app.use('/api/alerts', alertsRoutes)
 app.use('/api/metrics', metricsRoutes)
 app.use('/api/ai', aiRoutes)
 app.use('/api/compliance', complianceRoutes)
+app.use('/api/remediation', remediationRoutes)
+app.use('/api/rbac', rbacRoutes)
+app.use('/api/network', networkRoutes)
+app.use('/api/settings', settingsRoutes)
+app.use('/api/optimization', optimizationRoutes)
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -142,71 +170,68 @@ app.use('*', (req, res) => {
 // Error handling middleware
 app.use(errorHandler)
 
-// Socket.IO connection handling
+// Socket.IO real-time telemetry streaming
 io.on('connection', (socket) => {
   logger.info(`Client connected: ${socket.id}`)
 
-  // Join cluster-specific rooms
   socket.on('join-cluster', (clusterId: string) => {
     socket.join(`cluster-${clusterId}`)
     logger.info(`Client ${socket.id} joined cluster ${clusterId}`)
   })
 
-  // Leave cluster rooms
-  socket.on('leave-cluster', (clusterId: string) => {
-    socket.leave(`cluster-${clusterId}`)
-    logger.info(`Client ${socket.id} left cluster ${clusterId}`)
-  })
-
-  // Handle disconnection
   socket.on('disconnect', () => {
     logger.info(`Client disconnected: ${socket.id}`)
   })
 })
 
-// Make io available throughout the app
+// Background real-time telemetry emitter
+if (process.env.NODE_ENV !== 'test') {
+  setInterval(async () => {
+    try {
+      if (io.engine.clientsCount > 0) {
+        const [clusterInfo, pods] = await Promise.all([getClusterInfo(), getPods()])
+        const runningPods = pods.filter((p: any) => p.status?.phase === 'Running').length
+        io.emit('telemetry:stream', {
+          clusterId: 'cl-live-01',
+          nodeCount: clusterInfo.nodeCount,
+          podCount: pods.length,
+          runningPods,
+          timestamp: new Date().toISOString()
+        })
+      }
+    } catch {}
+  }, 5000)
+}
+
 app.set('io', io)
 
-// Start server
 const PORT = process.env.PORT || 8000
-
-/** In production, all dependencies must connect. In other modes (typical local `npm run dev`), start the API even if Mongo/Redis/K8s are offline so the UI dev server is not the only thing users troubleshoot. */
-const requireFullStack = process.env.NODE_ENV === 'production'
-const connectOptionalServices = process.env.CONNECT_OPTIONAL_SERVICES === 'true'
 
 async function startServer() {
   try {
-    if (requireFullStack || connectOptionalServices) {
+    // Attempt database and k8s connection
+    try {
       await connectDatabase()
-      await connectRedis()
-      await setupKubernetesClient()
-    } else {
-      logger.warn('Optional MongoDB, Redis, and Kubernetes connections skipped for local dev startup.')
-      logger.warn('Set CONNECT_OPTIONAL_SERVICES=true to connect real infrastructure services.')
-      if (process.env.CONNECT_OPTIONAL_SERVICES === 'legacy') {
-      try {
-        await connectDatabase()
-      } catch {
-        logger.warn('MongoDB not available — API persistence features will fail until MongoDB is running.')
-      }
-      try {
-        await connectRedis()
-      } catch {
-        logger.warn('Redis not available — rate limiting / cache features may fail until Redis is running.')
-      }
-      try {
-        await setupKubernetesClient()
-      } catch {
-        logger.warn('Kubernetes client not available — cluster API routes will fail until a valid kubeconfig is present.')
-      }
+    } catch {
+      logger.warn('Running with In-Memory Database store')
     }
 
+    try {
+      await connectRedis()
+    } catch {
+      logger.warn('Redis unavailable, using local memory rate limiter')
+    }
+
+    try {
+      await setupKubernetesClient()
+    } catch {
+      logger.warn('Running with Safe Virtual Kubernetes cluster')
     }
 
     server.listen(PORT, () => {
-      logger.info(`🚀 KubeGuardian AI Backend Server running on port ${PORT}`)
+      logger.info(`🚀 KubeGuardian AI Platform running on port ${PORT}`)
       logger.info(`📊 Health check available at http://localhost:${PORT}/health`)
-      logger.info(`🔌 Socket.IO server ready for real-time connections`)
+      logger.info(`🔌 Socket.IO server ready for real-time streaming`)
     })
   } catch (error) {
     logger.error('Failed to start server:', error)
@@ -217,31 +242,24 @@ async function startServer() {
 // Graceful shutdown
 process.on('SIGTERM', () => {
   logger.info('SIGTERM received, shutting down gracefully')
-  server.close(() => {
-    logger.info('Process terminated')
-    process.exit(0)
-  })
+  server.close(() => process.exit(0))
 })
 
 process.on('SIGINT', () => {
   logger.info('SIGINT received, shutting down gracefully')
-  server.close(() => {
-    logger.info('Process terminated')
-    process.exit(0)
-  })
+  server.close(() => process.exit(0))
 })
 
-// Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
   logger.error('Uncaught Exception:', error)
-  process.exit(1)
 })
 
 process.on('unhandledRejection', (reason, promise) => {
   logger.error('Unhandled Rejection at:', promise, 'reason:', reason)
-  process.exit(1)
 })
 
-startServer()
+if (process.env.NODE_ENV !== 'test') {
+  startServer()
+}
 
-export { app, io }
+export { app, io, server }

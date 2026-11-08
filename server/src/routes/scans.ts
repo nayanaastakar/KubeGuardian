@@ -1,52 +1,41 @@
 import { Router } from 'express'
 import { asyncHandler } from '@/middleware/errorHandler'
+import { memoryStore } from '@/services/dataStore'
+import { scanContainerImage, scanManifestContent } from '@/security/trivyScanner'
 
 const router = Router()
 
-// Get all scans
+// Get all security scans
 router.get('/', asyncHandler(async (req, res) => {
-  const scans = [
-    {
-      id: '1',
-      type: 'image',
-      status: 'completed',
-      clusterId: '1',
-      image: 'nginx:1.18.0',
-      startedAt: '2024-01-15T09:00:00Z',
-      completedAt: '2024-01-15T09:15:00Z',
-      vulnerabilitiesFound: 5,
-      vulnerabilities: []
-    }
-  ]
-
   res.json({
     success: true,
-    data: scans
+    data: memoryStore.scans
   })
 }))
 
-// Start new scan
+// Start new scan (image or manifest)
 router.post('/start', asyncHandler(async (req, res) => {
-  const { type, target, config } = req.body
+  const { type, target, manifestContent } = req.body
 
   if (!type || !target) {
     return res.status(400).json({
       success: false,
-      error: 'Scan type and target are required'
+      error: 'Scan type (image or manifest) and target are required'
     })
   }
 
-  const scan = {
-    id: Math.random().toString(36).substr(2, 9),
-    type,
-    target,
-    status: 'pending',
-    startedAt: new Date().toISOString()
+  let result
+  if (type === 'image') {
+    result = await scanContainerImage(target)
+  } else if (type === 'manifest') {
+    result = await scanManifestContent(manifestContent || target, target)
+  } else {
+    return res.status(400).json({ success: false, error: 'Invalid scan type' })
   }
 
   res.status(201).json({
     success: true,
-    data: scan
+    data: result
   })
 }))
 
